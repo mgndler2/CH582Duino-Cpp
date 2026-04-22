@@ -1,0 +1,8 @@
+
+ch58x-isp.name=USB ISP
+ch58x-isp.communication=usb
+ch58x-isp.protocol=usb
+ch58x-isp.program.protocol=usb
+ch58x-isp.program.tool=WCHISP
+ch58x-isp.program.tool.default=WCHISP
+ch58x-isp.program.extra_params=
