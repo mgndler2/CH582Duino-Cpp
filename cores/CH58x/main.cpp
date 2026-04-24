@@ -20,8 +20,6 @@
 #include "Arduino.h"
 #include "PluggableUSB.h"
 #include "USBAPI.h"
-//#include "./RVMSIS/core_riscv.h"
-//#include "./HAL/HAL.h"
 // Declared weak in Arduino.h to allow user redefinitions.
 int atexit(void (* /*func*/ )()) { return 0; }
 

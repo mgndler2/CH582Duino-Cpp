@@ -56,24 +56,12 @@ extern "C" {
 			}
 			TMOS_SystemProcess();
 		};
-
-		/*uint16_t i;
-
-		for (i = 0; i < ms; i++)
-		{
-			delayMicroseconds(1000);
-		}*/
 	}
 
 	void delayMicroseconds(unsigned int us)
 	{
 		uint32_t inTime = micros();
 		while ((micros() - inTime) < us);
-		/*uint32_t i = us * 8;
-		do
-		{
-			_nop();
-		} while (--i);*/
 	}
 
 #if(Fsys == 60000000UL)

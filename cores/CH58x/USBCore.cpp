@@ -22,12 +22,6 @@
 #define printLog 0
 #define printData 0
 
-//extern const u16 STRING_LANGUAGE[];
-//extern const u8 STRING_PRODUCT[];
-//extern const u8 STRING_MANUFACTURER[];
-
-//extern const DeviceDescriptor USB_DD;
-
 
 volatile u8 _usbConfiguration = 0;
 volatile u8 _usbCurrentStatus = 0x80; // meaning of bits see usb_20.pdf, Figure 9-4. Information Returned by a GetStatus() Request to a Device
@@ -183,310 +177,315 @@ static void InitEndpoints() {
 uint16_t SOF_Count = 0;
 /*==========================SETUP Variable==============================*/
 uint8_t usb_addr;
-//uint8_t bRequest;
+uint8_t ReqType, bRequest, dType, wLen;
 /*======================================================================*/
+//__HIGH_CODE
+void USB_Transfer(USBDevice_& Dev_, volatile USB_Module_t& USB_) {
+	USBSetup* SetupPack = (USBSetup*)Dev_.getEpBuffer(0);
+	if (USB_.INT_ST.DEVICE.UIS_TOKEN != 3) {
+		switch (USB_.INT_ST.byte & 0x3F) {
+		case UIS_TOKEN_IN | 4: {
+
+			USB_.UEP4_CTRL.UEP_T_RES = USB_MASK::NAK;
+			USB_.UEP4_T_LEN.length = Dev_.IN(4);
+			USB_.UEP4_CTRL.UEP_T_TOG ^= 1;
+			if (USB_.UEP4_T_LEN.length > 0) {
+				USB_.UEP4_CTRL.UEP_T_RES = USB_MASK::ACK;
+			}
+			break;
+		}
+		case UIS_TOKEN_IN | 3: {
+			USB_.UEP3_CTRL.UEP_T_RES = USB_MASK::NAK;
+			USB_.UEP3_T_LEN.length = Dev_.IN(3);
+			USB_.UEP3_CTRL.UEP_T_TOG ^= 1;
+			if (USB_.UEP3_T_LEN.length > 0) {
+				USB_.UEP3_CTRL.UEP_T_RES = USB_MASK::ACK;
+			}
+			break;
+		}
+		case UIS_TOKEN_OUT | 2: {
+			if (USB_.INT_FG.DEVICE.U_TOG_OK) {
+				Dev_.OUT(2, USB_.RX_LEN.length);
+			}
+			USB_.UEP2_CTRL.UEP_R_TOG ^= 1;
+			USB_.UEP3_CTRL.UEP_T_RES = USB_MASK::ACK;
+			break;
+		}
+		case UIS_TOKEN_IN | 1: {
+			USB_.UEP1_CTRL.UEP_T_TOG ^= 1;
+			USB_.UEP1_CTRL.UEP_T_RES = USB_MASK::NAK;
+			break;
+		}
+		case UIS_TOKEN_IN | 0: {
+			//PFIC_DisableIRQ(USB_IRQn);
+			USB_.UEP0_CTRL.UEP_T_RES = USB_MASK::NAK;
+			//PFIC_EnableIRQ(USB_IRQn);
+#if (printLog)
+			Serial1.println("IN");
+#endif
+			switch (bRequest) {
+			case GET_DESCRIPTOR: {
+				uint16_t len = min(Dev_.RemainLength, MAX_PACKET_SIZE);
+				memcpy(Dev_.getEpBuffer(0), Dev_.getExtendedBuffer(1), len);
+				Dev_.RemainLength -= len;
+				USB_.UEP0_T_LEN.length = len;
+				if (Dev_.ExpectedZLP == 1 || len > 0) {
+					//PFIC_DisableIRQ(USB_IRQn);
+					USB_.UEP0_CTRL.UEP_T_TOG ^= 1;
+					USB_.UEP0_CTRL.UEP_T_RES = USB_MASK::ACK;
+					//PFIC_EnableIRQ(USB_IRQn);
+				}
+				else {
+					//PFIC_DisableIRQ(USB_IRQn);
+					USB_.UEP0_CTRL.byte = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_ACK | UEP_T_RES_NAK;
+					//PFIC_EnableIRQ(USB_IRQn);
+				}
+				break;
+			}
+			case SET_ADDRESS: {
+				USB_.DEV_AD.USB_ADDR = usb_addr;
+#if (printLog)
+				Serial1.print("ADDR = ");
+				Serial1.println(usb_addr);
+#endif
+				need_serial_state_notify = 1;
+				//PFIC_DisableIRQ(USB_IRQn);
+				USB_.UEP0_CTRL.byte = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_ACK | UEP_T_RES_NAK;
+				//PFIC_EnableIRQ(USB_IRQn);
+				break;
+			}
+			default: {
+				//PFIC_DisableIRQ(USB_IRQn);
+				USB_.UEP0_CTRL.byte = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_ACK | UEP_T_RES_NAK;
+				//PFIC_EnableIRQ(USB_IRQn);
+				break;
+			}
+			}
+			break;
+		}
+		case UIS_TOKEN_OUT | 0: {
+#if (printLog)
+			Serial1.println("OUT");
+			Serial1.println("");
+#endif
+			if (CDC_SET_LINE_CODING == bRequest)
+			{
+				memcpy((void*)&_usbLineInfo, Dev_.getEpBuffer(0), 7);
+				USB_.UEP0_T_LEN.length = 0;
+				//PFIC_DisableIRQ(USB_IRQn);
+				USB_.UEP0_CTRL.byte = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_NAK | UEP_T_RES_ACK;
+				//PFIC_EnableIRQ(USB_IRQn);
+			}
+			else {
+				//PFIC_DisableIRQ(USB_IRQn);
+				USB_.UEP0_CTRL.byte = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_NAK | UEP_T_RES_NAK;
+				//PFIC_EnableIRQ(USB_IRQn);
+			}
+			break;
+		}
+		}
+	}
+	USB_.INT_FG.DEVICE.UIF_TRANSFER = 1;
+	if (USB_.INT_ST.DEVICE.UIS_SETUP_ACT) {
+		uint8_t len = 0;		
+		if ((ReqType & REQUEST_TYPE) == REQUEST_STANDARD) {
+			uint16_t wValue = SetupPack->wValueL | (SetupPack->wValueH << 8);
+#if (printLog)
+			Serial1.print("TYPE: ");
+			Serial1.println(bRequest);
+#endif
+			switch (bRequest) {
+			case GET_DESCRIPTOR: {
+				if (USB_DEVICE_DESCRIPTOR_TYPE == dType) {
+#if (printLog)
+					Serial1.println(": USB_DD");
+#endif
+					len = min(MAX_PACKET_SIZE, sizeof(USB_DD));
+					len = min(len, wLen);
+					memcpy(Dev_.getEpBuffer(0), &USB_DD, len);
+					Dev_.ExpectedZLP = (sizeof(USB_DD) % MAX_PACKET_SIZE == 0) ? 1 : 0;
+				}
+				else if (USB_CONFIGURATION_DESCRIPTOR_TYPE == dType) {
+#if (printLog)
+					Serial1.println(": USB_CD");
+#endif
+					int descriptorLegth = 0;
+					uint8_t interfaces = SendInterfaces(&descriptorLegth);
+					ConfigDescriptor config = D_CONFIG((uint16_t)(descriptorLegth), interfaces);
+					memcpy(Dev_.getExtendedBuffer(-1), &config, sizeof(config));
+					len = min(MAX_PACKET_SIZE, descriptorLegth);
+					len = min(len, wLen);
+					memcpy(Dev_.getEpBuffer(0), Dev_.getExtendedBuffer(-1), len);
+					if (wLen == 9) {
+					}
+					else {
+						Dev_.ExpectedZLP = ((descriptorLegth) % MAX_PACKET_SIZE == 0) ? 1 : 0;
+						Dev_.RemainLength = descriptorLegth - len;
+					}
+				}
+				else if (USB_STRING_DESCRIPTOR_TYPE == dType) {
+					switch (SetupPack->wValueL) {
+					case 0: {
+#if (printLog)
+						Serial1.println(": Lang");
+#endif
+						memcpy(Dev_.getEpBuffer(0), &STRING_LANGUAGE, 4);
+						len = 4;
+						break;
+					}
+					case IMANUFACTURER: {
+#if (printLog)
+						Serial1.println(": Manu");
+#endif
+						len = USB_SendStringDescriptor(STRING_MANUFACTURER, strlen(USB_MANUFACTURER));
+						break;
+					}
+					case IPRODUCT: {
+#if (printLog)
+						Serial1.println(": Prod");
+#endif
+						len = USB_SendStringDescriptor(STRING_PRODUCT, strlen(USB_PRODUCT));
+						break;
+					}
+					case ISERIAL: {
+#if (printLog)
+						Serial1.println(": Serl");
+#endif
+#ifdef PLUGGABLE_USB_ENABLED
+						char name[ISERIAL_MAX_LEN];
+						PluggableUSB().getShortName(name);
+						len = USB_SendStringDescriptor((uint8_t*)name, strlen(name));
+#endif
+						break;
+					}
+					}
+					len = (len > wLen) ? wLen : len;
+				}
+				else {
+#if (printLog)
+					Serial1.println(": SUB Desc");
+#endif
+					int ret = 0;
+#ifdef PLUGGABLE_USB_ENABLED
+					ret = PluggableUSB().getDescriptor(*SetupPack);
+#endif 
+					if (ret > 0) {
+						Dev_.ExpectedZLP = (ret % MAX_PACKET_SIZE == 0) ? 1 : 0;
+						len = min(ret, MAX_PACKET_SIZE);
+						memcpy(Dev_.getEpBuffer(0), Dev_.getExtendedBuffer(-1), len);
+						Dev_.RemainLength = ret - len;
+						//int len_to_send = min(len, wLen);
+						//Dev_.ExpectedZLP = (len_to_send < maxLength) && (len_to_send % MAX_PACKET_SIZE == 0);
+					}
+					else {
+						USB.UEP0_CTRL.UEP_T_RES = USB_MASK::STALL;
+						USB.UEP0_CTRL.UEP_R_RES = USB_MASK::STALL;
+					}
+				}
+				break;
+			}
+			case SET_DESCRIPTOR: { break; }
+			case GET_CONFIGURATION: {
+#if (printLog)
+				Serial1.println(": g_CONF");
+#endif
+				Dev_.getEpBuffer(0)[0] = _usbConfiguration;
+				len = 1;
+				break;
+			}
+			case SET_CONFIGURATION: {
+#if (printLog)
+				Serial1.println(": s_CONF");
+#endif
+				if ((ReqType & REQUEST_RECIPIENT) == REQUEST_DEVICE) {
+					InitEndpoints();
+					_usbConfiguration = SetupPack->wValueL;
+					len = 0;
+				}
+				break;
+			}
+			case GET_INTERFACE: { break; }
+			case SET_INTERFACE: { break; }
+			case CLEAR_FEATURE: {
+#if (printLog)
+				Serial1.println(": c_FEAT");
+#endif
+				if ((ReqType == (REQUEST_HOSTTODEVICE | REQUEST_STANDARD | REQUEST_DEVICE))
+					&& (wValue == DEVICE_REMOTE_WAKEUP)) {
+					_usbCurrentStatus &= ~FEATURE_REMOTE_WAKEUP_ENABLED;
+					len = 0;
+				}
+				break;
+			}
+			case SET_FEATURE: {
+#if (printLog)
+				Serial1.println(": s_FEAT");
+#endif
+				if ((ReqType == (REQUEST_HOSTTODEVICE | REQUEST_STANDARD | REQUEST_DEVICE))
+					&& (wValue == DEVICE_REMOTE_WAKEUP)) {
+					_usbCurrentStatus |= FEATURE_REMOTE_WAKEUP_ENABLED;
+					len = 0;
+				}
+				break;
+			}
+			case GET_STATUS: {
+#if (printLog)
+				Serial1.println(": g_STATUS");
+#endif
+				if (ReqType == (REQUEST_DEVICETOHOST | REQUEST_STANDARD | REQUEST_DEVICE)) {
+					Dev_.getEpBuffer(0)[0] = _usbCurrentStatus;
+					Dev_.getEpBuffer(0)[1] = 0x00;
+				}
+				else {
+					Dev_.getEpBuffer(0)[0] = 0x00;
+					Dev_.getEpBuffer(0)[1] = 0x00;
+				}
+				len = 2;
+				break;
+			}
+			case SET_ADDRESS: {
+#if (printLog)
+				Serial1.println(": SET ADDR");
+#endif
+				usb_addr = SetupPack->wValueL & 0x7F;
+				len = 0;
+				break;
+			}
+			}
+#if (printLog)
+			Serial1.print("Setup Len:");
+			Serial1.println(len);
+#endif
+			USB_.UEP0_T_LEN.length = len;
+			USB_.UEP0_CTRL.UEP_T_RES = USB_MASK::ACK;
+		}
+	}
+	USB_.INT_FG.DEVICE.UIF_TRANSFER = 1;
+}
 extern "C"
 __INTERRUPT
 void USB_IRQHandler(void) {
 	static USBDevice_& Dev_ = USBDevice;
 	static volatile USB_Module_t& USB_ = USB;
 	static USBSetup* SetupPack = (USBSetup*)Dev_.getEpBuffer(0);
-	static uint8_t ReqType, bRequest, dType, wLen;
-
 	if (USB_.INT_FG.DEVICE.UIF_TRANSFER) {
-		if (USB_.INT_ST.DEVICE.UIS_TOKEN != 3) {
-			switch (USB_.INT_ST.byte & 0x3F) {
-			case UIS_TOKEN_IN | 4: {
-
-				USB_.UEP4_CTRL.UEP_T_RES = USB_MASK::NAK;
-				USB_.UEP4_T_LEN.length = Dev_.IN(4);
-				USB_.UEP4_CTRL.UEP_T_TOG ^= 1;
-				if (USB_.UEP4_T_LEN.length > 0) {
-					USB_.UEP4_CTRL.UEP_T_RES = USB_MASK::ACK;
-				}
-				break;
-			}
-			case UIS_TOKEN_IN | 3: {
-				USB_.UEP3_CTRL.UEP_T_RES = USB_MASK::NAK;
-				USB_.UEP3_T_LEN.length = Dev_.IN(3);
-				USB_.UEP3_CTRL.UEP_T_TOG ^= 1;
-				if (USB_.UEP3_T_LEN.length > 0) {
-					USB_.UEP3_CTRL.UEP_T_RES = USB_MASK::ACK;
-				}
-				break;
-			}
-			case UIS_TOKEN_OUT | 2: {
-				if (USB_.INT_FG.DEVICE.U_TOG_OK) {
-					Dev_.OUT(2, USB_.RX_LEN.length);
-				}
-				USB_.UEP2_CTRL.UEP_R_TOG ^= 1;
-				USB_.UEP3_CTRL.UEP_T_RES = USB_MASK::ACK;
-				break;
-			}
-			case UIS_TOKEN_IN | 1: {
-				USB_.UEP1_CTRL.UEP_T_TOG ^= 1;
-				USB_.UEP1_CTRL.UEP_T_RES = USB_MASK::NAK;
-				break;
-			}
-			case UIS_TOKEN_IN | 0: {
-				PFIC_DisableIRQ(USB_IRQn);
-				USB_.UEP0_CTRL.UEP_T_RES = USB_MASK::NAK;
-				PFIC_EnableIRQ(USB_IRQn);
-#if (printLog)
-				Serial1.println("IN");
-#endif
-				switch (bRequest) {
-				case GET_DESCRIPTOR: {
-					uint16_t len = min(Dev_.RemainLength, MAX_PACKET_SIZE);
-					memcpy(Dev_.getEpBuffer(0), Dev_.getExtendedBuffer(1), len);
-					Dev_.RemainLength -= len;
-					USB_.UEP0_T_LEN.length = len;
-					if (Dev_.ExpectedZLP == 1 || len > 0) {
-						PFIC_DisableIRQ(USB_IRQn);
-						USB_.UEP0_CTRL.UEP_T_TOG ^= 1;
-						USB_.UEP0_CTRL.UEP_T_RES = USB_MASK::ACK;
-						PFIC_EnableIRQ(USB_IRQn);
-					}
-					else {
-						PFIC_DisableIRQ(USB_IRQn);
-						USB_.UEP0_CTRL.byte = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_ACK | UEP_T_RES_NAK;
-						PFIC_EnableIRQ(USB_IRQn);
-					}
-					break;
-				}
-				case SET_ADDRESS: {
-					USB_.DEV_AD.USB_ADDR = usb_addr;
-#if (printLog)
-					Serial1.print("ADDR = ");
-					Serial1.println(usb_addr);
-#endif
-					need_serial_state_notify = 1;
-					PFIC_DisableIRQ(USB_IRQn);
-					USB_.UEP0_CTRL.byte = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_ACK | UEP_T_RES_NAK;
-					PFIC_EnableIRQ(USB_IRQn);
-					break;
-				}
-				default: {
-					PFIC_DisableIRQ(USB_IRQn);
-					USB_.UEP0_CTRL.byte = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_ACK | UEP_T_RES_NAK;
-					PFIC_EnableIRQ(USB_IRQn);
-					break;
-				}
-				}
-				break;
-			}
-			case UIS_TOKEN_OUT | 0: {
-#if (printLog)
-				Serial1.println("OUT");
-				Serial1.println("");
-#endif
-				if (CDC_SET_LINE_CODING == bRequest)
-				{
-					memcpy((void*)&_usbLineInfo, Dev_.getEpBuffer(0), 7);
-					USB_.UEP0_T_LEN.length = 0;
-					PFIC_DisableIRQ(USB_IRQn);
-					USB_.UEP0_CTRL.byte = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_NAK | UEP_T_RES_ACK;
-					PFIC_EnableIRQ(USB_IRQn);
-				}
-				else {
-					PFIC_DisableIRQ(USB_IRQn);
-					USB_.UEP0_CTRL.byte = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_NAK | UEP_T_RES_NAK;
-					PFIC_EnableIRQ(USB_IRQn);
-				}
-				break;
-			}
-			}
-		}
-		USB_.INT_FG.DEVICE.UIF_TRANSFER = 1;
 		if (USB_.INT_ST.DEVICE.UIS_SETUP_ACT) {
 			ReqType = SetupPack->bmRequestType;
 			bRequest = SetupPack->bRequest;
 			dType = SetupPack->wValueH;
-			wLen = SetupPack->wLength;
-			uint8_t len = 0;
+			wLen = SetupPack->wLength;			
 			USB_.UEP0_CTRL.byte = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_NAK | UEP_T_RES_NAK;
 			Dev_.ExpectedZLP = 0;
 			Dev_.RemainLength = 0;
-			if ((ReqType & REQUEST_TYPE) == REQUEST_STANDARD) {
-				uint16_t wValue = SetupPack->wValueL | (SetupPack->wValueH << 8);
-#if (printLog)
-				Serial1.print("TYPE: ");
-				Serial1.println(bRequest);
-#endif
-				switch (bRequest) {
-				case GET_DESCRIPTOR: {
-					if (USB_DEVICE_DESCRIPTOR_TYPE == dType) {
-#if (printLog)
-						Serial1.println(": USB_DD");
-#endif
-						len = min(MAX_PACKET_SIZE, sizeof(USB_DD));
-						len = min(len, wLen);
-						memcpy(Dev_.getEpBuffer(0), &USB_DD, len);
-						Dev_.ExpectedZLP = (sizeof(USB_DD) % MAX_PACKET_SIZE == 0) ? 1 : 0;
-					}
-					else if (USB_CONFIGURATION_DESCRIPTOR_TYPE == dType) {
-#if (printLog)
-						Serial1.println(": USB_CD");
-#endif
-						int descriptorLegth = 0;
-						uint8_t interfaces = SendInterfaces(&descriptorLegth);
-						ConfigDescriptor config = D_CONFIG((uint16_t)(descriptorLegth), interfaces);
-						memcpy(Dev_.getExtendedBuffer(-1), &config, sizeof(config));
-						len = min(MAX_PACKET_SIZE, descriptorLegth);
-						len = min(len, wLen);
-						memcpy(Dev_.getEpBuffer(0), Dev_.getExtendedBuffer(-1), len);
-						if (wLen == 9) {
-						}
-						else {
-							Dev_.ExpectedZLP = ((descriptorLegth) % MAX_PACKET_SIZE == 0) ? 1 : 0;
-							Dev_.RemainLength = descriptorLegth - len;
-						}
-					}
-					else if (USB_STRING_DESCRIPTOR_TYPE == dType) {
-						switch (SetupPack->wValueL) {
-						case 0: {
-#if (printLog)
-							Serial1.println(": Lang");
-#endif
-							memcpy(Dev_.getEpBuffer(0), &STRING_LANGUAGE, 4);
-							len = 4;
-							break;
-						}
-						case IMANUFACTURER: {
-#if (printLog)
-							Serial1.println(": Manu");
-#endif
-							len = USB_SendStringDescriptor(STRING_MANUFACTURER, strlen(USB_MANUFACTURER));
-							break;
-						}
-						case IPRODUCT: {
-#if (printLog)
-							Serial1.println(": Prod");
-#endif
-							len = USB_SendStringDescriptor(STRING_PRODUCT, strlen(USB_PRODUCT));
-							break;
-						}
-						case ISERIAL: {
-#if (printLog)
-							Serial1.println(": Serl");
-#endif
-#ifdef PLUGGABLE_USB_ENABLED
-							char name[ISERIAL_MAX_LEN];
-							PluggableUSB().getShortName(name);
-							len = USB_SendStringDescriptor((uint8_t*)name, strlen(name));
-#endif
-							break;
-						}
-						}
-						len = (len > wLen) ? wLen : len;
-					}
-					else {
-#if (printLog)
-						Serial1.println(": SUB Desc");
-#endif
-						int ret = 0;
-#ifdef PLUGGABLE_USB_ENABLED
-						ret = PluggableUSB().getDescriptor(*SetupPack);
-#endif 
-						if (ret > 0) {
-							Dev_.ExpectedZLP = (ret % MAX_PACKET_SIZE == 0) ? 1 : 0;
-							len = min(ret, MAX_PACKET_SIZE);
-							memcpy(Dev_.getEpBuffer(0), Dev_.getExtendedBuffer(-1), len);
-							Dev_.RemainLength = ret - len;
-							//int len_to_send = min(len, wLen);
-							//Dev_.ExpectedZLP = (len_to_send < maxLength) && (len_to_send % MAX_PACKET_SIZE == 0);
-						}
-						else {
-							USB.UEP0_CTRL.UEP_T_RES = USB_MASK::STALL;
-							USB.UEP0_CTRL.UEP_R_RES = USB_MASK::STALL;
-						}
-					}
-					break;
-				}
-				case SET_DESCRIPTOR: { break; }
-				case GET_CONFIGURATION: {
-#if (printLog)
-					Serial1.println(": g_CONF");
-#endif
-					Dev_.getEpBuffer(0)[0] = _usbConfiguration;
-					len = 1;
-					break;
-				}
-				case SET_CONFIGURATION: {
-#if (printLog)
-					Serial1.println(": s_CONF");
-#endif
-					if ((ReqType & REQUEST_RECIPIENT) == REQUEST_DEVICE) {
-						InitEndpoints();
-						_usbConfiguration = SetupPack->wValueL;
-						len = 0;
-					}
-					break;
-				}
-				case GET_INTERFACE: { break; }
-				case SET_INTERFACE: { break; }
-				case CLEAR_FEATURE: {
-#if (printLog)
-					Serial1.println(": c_FEAT");
-#endif
-					if ((ReqType == (REQUEST_HOSTTODEVICE | REQUEST_STANDARD | REQUEST_DEVICE))
-						&& (wValue == DEVICE_REMOTE_WAKEUP)) {
-						_usbCurrentStatus &= ~FEATURE_REMOTE_WAKEUP_ENABLED;
-						len = 0;
-					}
-					break;
-				}
-				case SET_FEATURE: {
-#if (printLog)
-					Serial1.println(": s_FEAT");
-#endif
-					if ((ReqType == (REQUEST_HOSTTODEVICE | REQUEST_STANDARD | REQUEST_DEVICE))
-						&& (wValue == DEVICE_REMOTE_WAKEUP)) {
-						_usbCurrentStatus |= FEATURE_REMOTE_WAKEUP_ENABLED;
-						len = 0;
-					}
-					break;
-				}
-				case GET_STATUS: {
-#if (printLog)
-					Serial1.println(": g_STATUS");
-#endif
-					if (ReqType == (REQUEST_DEVICETOHOST | REQUEST_STANDARD | REQUEST_DEVICE)) {
-						Dev_.getEpBuffer(0)[0] = _usbCurrentStatus;
-						Dev_.getEpBuffer(0)[1] = 0x00;
-					}
-					else {
-						Dev_.getEpBuffer(0)[0] = 0x00;
-						Dev_.getEpBuffer(0)[1] = 0x00;
-					}
-					len = 2;
-					break;
-				}
-				case SET_ADDRESS: {
-#if (printLog)
-					Serial1.println(": SET ADDR");
-#endif
-					usb_addr = SetupPack->wValueL & 0x7F;
-					len = 0;
-					break;
-				}
-				}
-#if (printLog)
-				Serial1.print("Setup Len:");
-				Serial1.println(len);
-#endif
-				USB_.UEP0_T_LEN.length = len;
-				USB_.UEP0_CTRL.UEP_T_RES = USB_MASK::ACK;				
-			}
-			else if ((ReqType & REQUEST_TYPE) == REQUEST_CLASS) {
+
+			if ((ReqType & REQUEST_TYPE) == REQUEST_CLASS) {
 #if (printLog)
 				Serial1.println(": Class");
 #endif
 				ClassInterfaceRequest(*SetupPack);
 			}
-			
 		}
-		USB_.INT_FG.DEVICE.UIF_TRANSFER = 1;
+		USB_Transfer(Dev_, USB_);
 	}	
 	else if (USB_.INT_FG.DEVICE.UIF_BUS_RST) {
 #if (printLog)

@@ -1,5 +1,5 @@
 #include "peripheral.h"
-__aligned(4) unsigned int MEM_BUF[BLE_MEMHEAP_SIZE / 4];
+__aligned(4) uint32_t MEM_BUF[BLE_MEMHEAP_SIZE / 4];
 
 void setup() {
     pinMode(20, OUTPUT);

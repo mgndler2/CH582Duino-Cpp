@@ -128,35 +128,32 @@ extern "C"
 __INTERRUPT
 void TMR0_IRQHandler(void) {
 	using namespace ns_TMR;
-	switch (TMR0.INT_FLAG.byte & TMR0.INTER_EN.byte) {
-	case 0x01: {
-		if (TMR_Int_Func[0][0] != nullptr) {
-			TMR_Int_Func[0][0]();
-		}
+
+	uint8_t pending = TMR0.INT_FLAG.byte & TMR0.INTER_EN.byte;
+	if (!pending) return;
+	// bit 0
+	if (pending & 0x01)
+	{
+		if (TMR_Int_Func[0][0]) TMR_Int_Func[0][0]();
 		TMR0.INT_FLAG.TMR_IF_CYC_END = 1;
-		break;
 	}
-	case 0x02: {
-		if (TMR_Int_Func[0][1] != nullptr) {
-			TMR_Int_Func[0][1]();
-		}
+	// bit 1
+	if (pending & 0x02)
+	{
+		if (TMR_Int_Func[0][1]) TMR_Int_Func[0][1]();
 		TMR0.INT_FLAG.TMR_IF_DATA_ACT = 1;
-		break;
 	}
-	case 0x04: {
-		if (TMR_Int_Func[0][2] != nullptr) {
-			TMR_Int_Func[0][2]();
-		}
+	// bit 2
+	if (pending & 0x04)
+	{
+		if (TMR_Int_Func[0][2]) TMR_Int_Func[0][2]();
 		TMR0.INT_FLAG.TMR_IF_FIFO_HF = 1;
-		break;
 	}
-	case 0x10: {
-		if (TMR_Int_Func[0][4] != nullptr) {
-			TMR_Int_Func[0][4]();
-		}
+	// bit 4
+	if (pending & 0x10)
+	{
+		if (TMR_Int_Func[0][4]) TMR_Int_Func[0][4]();
 		TMR0.INT_FLAG.TMR_IF_FIFO_OV = 1;
-		break;
-	}
 	}
 }
 
@@ -164,42 +161,37 @@ extern "C"
 __INTERRUPT
 void TMR1_IRQHandler(void) {
 	using namespace ns_TMR;
-	switch (TMR1.INT_FLAG.byte & TMR1.INTER_EN.byte) {
-	case 0x01: {
-		if (TMR_Int_Func[1][0] != nullptr) {
-			TMR_Int_Func[1][0]();
-		}
+	uint8_t pending = TMR1.INT_FLAG.byte & TMR1.INTER_EN.byte;
+	if (!pending) return;
+	// bit 0
+	if (pending & 0x01)
+	{
+		if (TMR_Int_Func[1][0]) TMR_Int_Func[1][0]();
 		TMR1.INT_FLAG.TMR_IF_CYC_END = 1;
-		break;
 	}
-	case 0x02: {
-		if (TMR_Int_Func[1][1] != nullptr) {
-			TMR_Int_Func[1][1]();
-		}
+	// bit 1
+	if (pending & 0x02)
+	{
+		if (TMR_Int_Func[1][1]) TMR_Int_Func[1][1]();
 		TMR1.INT_FLAG.TMR_IF_DATA_ACT = 1;
-		break;
 	}
-	case 0x04: {
-		if (TMR_Int_Func[1][2] != nullptr) {
-			TMR_Int_Func[1][2]();
-		}
+	// bit 2
+	if (pending & 0x04)
+	{
+		if (TMR_Int_Func[1][2]) TMR_Int_Func[1][2]();
 		TMR1.INT_FLAG.TMR_IF_FIFO_HF = 1;
-		break;
 	}
-	case 0x08: {
-		if (TMR_Int_Func[1][3] != nullptr) {
-			TMR_Int_Func[1][3]();
-		}
-		TMR1.INT_FLAG.TMR_IF_DMA_END = 1;
-		break;
+	// bit 3
+	if (pending & 0x08)
+	{
+		if (TMR_Int_Func[1][3]) TMR_Int_Func[1][3]();
+		TMR1.INT_FLAG.TMR_IF_FIFO_HF = 1;
 	}
-	case 0x10: {
-		if (TMR_Int_Func[1][4] != nullptr) {
-			TMR_Int_Func[1][4]();
-		}
+	// bit 4
+	if (pending & 0x10)
+	{
+		if (TMR_Int_Func[1][4]) TMR_Int_Func[1][4]();
 		TMR1.INT_FLAG.TMR_IF_FIFO_OV = 1;
-		break;
-	}
 	}
 }
 
@@ -207,42 +199,37 @@ extern "C"
 __INTERRUPT
 void TMR2_IRQHandler(void) {
 	using namespace ns_TMR;
-	switch (TMR2.INT_FLAG.byte & TMR2.INTER_EN.byte) {
-	case 0x01: {
-		if (TMR_Int_Func[2][0] != nullptr) {
-			TMR_Int_Func[2][0]();
-		}
+	uint8_t pending = TMR2.INT_FLAG.byte & TMR2.INTER_EN.byte;
+	if (!pending) return;
+	// bit 0
+	if (pending & 0x01)
+	{
+		if (TMR_Int_Func[2][0]) TMR_Int_Func[2][0]();
 		TMR2.INT_FLAG.TMR_IF_CYC_END = 1;
-		break;
 	}
-	case 0x02: {
-		if (TMR_Int_Func[2][1] != nullptr) {
-			TMR_Int_Func[2][1]();
-		}
+	// bit 1
+	if (pending & 0x02)
+	{
+		if (TMR_Int_Func[2][1]) TMR_Int_Func[2][1]();
 		TMR2.INT_FLAG.TMR_IF_DATA_ACT = 1;
-		break;
 	}
-	case 0x04: {
-		if (TMR_Int_Func[2][2] != nullptr) {
-			TMR_Int_Func[2][2]();
-		}
+	// bit 2
+	if (pending & 0x04)
+	{
+		if (TMR_Int_Func[2][2]) TMR_Int_Func[2][2]();
 		TMR2.INT_FLAG.TMR_IF_FIFO_HF = 1;
-		break;
 	}
-	case 0x08: {
-		if (TMR_Int_Func[2][3] != nullptr) {
-			TMR_Int_Func[2][3]();
-		}
-		TMR2.INT_FLAG.TMR_IF_DMA_END = 1;
-		break;
+	// bit 3
+	if (pending & 0x08)
+	{
+		if (TMR_Int_Func[2][3]) TMR_Int_Func[2][3]();
+		TMR2.INT_FLAG.TMR_IF_FIFO_HF = 1;
 	}
-	case 0x10: {
-		if (TMR_Int_Func[2][4] != nullptr) {
-			TMR_Int_Func[2][4]();
-		}
+	// bit 4
+	if (pending & 0x10)
+	{
+		if (TMR_Int_Func[2][4]) TMR_Int_Func[2][4]();
 		TMR2.INT_FLAG.TMR_IF_FIFO_OV = 1;
-		break;
-	}
 	}
 }
 
@@ -250,34 +237,30 @@ extern "C"
 __INTERRUPT
 void TMR3_IRQHandler(void) {
 	using namespace ns_TMR;
-	switch (TMR3.INT_FLAG.byte & TMR3.INTER_EN.byte) {
-	case 0x01: {
-		if (TMR_Int_Func[3][0] != nullptr) {
-			TMR_Int_Func[3][0]();
-		}
+	uint8_t pending = TMR3.INT_FLAG.byte & TMR3.INTER_EN.byte;
+	if (!pending) return;
+	// bit 0
+	if (pending & 0x01)
+	{
+		if (TMR_Int_Func[3][0]) TMR_Int_Func[3][0]();
 		TMR3.INT_FLAG.TMR_IF_CYC_END = 1;
-		break;
 	}
-	case 0x02: {
-		if (TMR_Int_Func[3][1] != nullptr) {
-			TMR_Int_Func[3][1]();
-		}
+	// bit 1
+	if (pending & 0x02)
+	{
+		if (TMR_Int_Func[3][1]) TMR_Int_Func[3][1]();
 		TMR3.INT_FLAG.TMR_IF_DATA_ACT = 1;
-		break;
 	}
-	case 0x04: {
-		if (TMR_Int_Func[3][2] != nullptr) {
-			TMR_Int_Func[3][2]();
-		}
+	// bit 2
+	if (pending & 0x04)
+	{
+		if (TMR_Int_Func[3][2]) TMR_Int_Func[3][2]();
 		TMR3.INT_FLAG.TMR_IF_FIFO_HF = 1;
-		break;
 	}
-	case 0x10: {
-		if (TMR_Int_Func[3][4] != nullptr) {
-			TMR_Int_Func[3][4]();
-		}
+	// bit 4
+	if (pending & 0x10)
+	{
+		if (TMR_Int_Func[3][4]) TMR_Int_Func[3][4]();
 		TMR3.INT_FLAG.TMR_IF_FIFO_OV = 1;
-		break;
-	}
 	}
 }

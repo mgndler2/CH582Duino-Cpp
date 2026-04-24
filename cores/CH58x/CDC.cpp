@@ -89,19 +89,15 @@ bool CDC_::setup(USBSetup& setup) {
 	{
 		if (CDC_GET_LINE_CODING == r)
 		{
-
-			memcpy(EP0_Buffer, (const void*)&_usbLineInfo, 7);
-			LineInfo LI;
-			memcpy((void*)&LI, EP0_Buffer, 7);
+			memcpy(EP0_Buffer, (const void*)&_usbLineInfo, 7);			
 #if(printLog)
 			Serial1.print("GET_LINE_CODING : send ");
-			Serial1.println(LI.dwDTERate);
+			Serial1.println(_usbLineInfo.dwDTERate);
 #endif
 			x8_UEP0_T_LEN.length = 7;
-			PFIC_DisableIRQ(USB_IRQn);
+			//PFIC_DisableIRQ(USB_IRQn);
 			R8_UEP0_CTRL = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_NAK | UEP_T_RES_ACK;
-			PFIC_EnableIRQ(USB_IRQn);
-			
+			//PFIC_EnableIRQ(USB_IRQn);			
 			return true;
 		}
 		else {
@@ -119,18 +115,15 @@ bool CDC_::setup(USBSetup& setup) {
 #endif
 			breakValue = ((uint16_t)setup.wValueH << 8) | setup.wValueL;
 			x8_UEP0_T_LEN.length = 0;
-			PFIC_DisableIRQ(USB_IRQn);
+			//PFIC_DisableIRQ(USB_IRQn);
 			R8_UEP0_CTRL = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_NAK | UEP_T_RES_ACK;
-			PFIC_EnableIRQ(USB_IRQn);
+			//PFIC_EnableIRQ(USB_IRQn);
 		}
 		else if (CDC_SET_LINE_CODING == r)
 		{
-			PFIC_DisableIRQ(USB_IRQn);
+			//PFIC_DisableIRQ(USB_IRQn);
 			R8_UEP0_CTRL = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_ACK | UEP_T_RES_NAK;
-			PFIC_EnableIRQ(USB_IRQn);
-			//memcpy((void*)&_usbLineInfo, EP0_Buffer, 7);
-			//Serial1.println("It's 57600");
-			//USB_RecvControl((void*)&_usbLineInfo, 7);
+			//PFIC_EnableIRQ(USB_IRQn);
 		}
 		else if (CDC_SET_CONTROL_LINE_STATE == r)
 		{
@@ -140,12 +133,11 @@ bool CDC_::setup(USBSetup& setup) {
 			Serial1.print("SCLS: ");
 			Serial1.println(_usbLineInfo.lineState, HEX);
 			Serial1.println((uintptr_t)&iap_magic_num, HEX);
-#endif
-
+#endif			
 			x8_UEP0_T_LEN.length = 0;
-			PFIC_DisableIRQ(USB_IRQn);
+			//PFIC_DisableIRQ(USB_IRQn);
 			R8_UEP0_CTRL = RB_UEP_R_TOG | RB_UEP_T_TOG | UEP_R_RES_NAK | UEP_T_RES_ACK;
-			PFIC_EnableIRQ(USB_IRQn);
+			//PFIC_EnableIRQ(USB_IRQn);
 			
 			// We check DTR state to determine if host port is open (bit 0 of lineState).
 			if (1200 == _usbLineInfo.dwDTERate && (_usbLineInfo.lineState & 0x01) == 0)
@@ -163,7 +155,9 @@ bool CDC_::setup(USBSetup& setup) {
 		return true;
 	}
 	else {
+#if(printLog)
 		Serial1.println(requestType, HEX);
+#endif
 	}
 	return false;
 }

@@ -28,14 +28,14 @@ compiler.c.cmd={build.crossprefix}gcc
 compiler.c.flags=-c {compiler.warning_flags} -g3 {compiler.wch.arch.define} -march={build.mcu} -mabi=ilp32
 #-B{compiler.path}
 compiler.c.elf.cmd={build.crossprefix}gcc
-compiler.c.elf.flags=-Wl,--gc-sections {compiler.warning_flags} -Wl,--defsym=__dso_handle=0
+compiler.c.elf.flags=-ffunction-sections -fdata-sections -Wl,--gc-sections {compiler.warning_flags} -Wl,--defsym=__dso_handle=0 -Os
 compiler.c.elf.libs=-lc -lgcc -lstdc++ -lsupc++
 
 compiler.cpp.cmd={build.crossprefix}g++
 compiler.cpp.flags=-c {compiler.warning_flags} -g3 {compiler.wch.arch.define} -march={build.mcu} -mabi=ilp32
 #-B{compiler.path}
 compiler.cpp.elf.cmd={build.crossprefix}g++
-compiler.cpp.elf.flags=-Wl,--gc-sections {compiler.warning_flags} -Wl,--defsym=__dso_handle=0
+compiler.cpp.elf.flags=-ffunction-sections -fdata-sections -Wl,--gc-sections {compiler.warning_flags} -Wl,--defsym=__dso_handle=0 -Os
 compiler.cpp.elf.libs=-lc -lgcc
 #-lstdc++ -lsupc++
 

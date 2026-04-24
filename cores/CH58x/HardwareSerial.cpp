@@ -140,10 +140,7 @@ extern "C"
 __INTERRUPT
 void UART1_IRQHandler(void) {
 	switch (Serial1.get_IIR()) {
-	case 0b0100: {
-		Serial1.Recv(Serial1._part);
-		break;
-	}
+	case 0b0100: 
 	case 0b1100: {
 		Serial1.Recv(Serial1._part);
 		break;
